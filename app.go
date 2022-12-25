@@ -114,5 +114,6 @@ func main() {
 	cache = make(map[string]CacheItem)
 
 	http.HandleFunc("/pagesource", downloadPageSource)
+	fmt.Println("Listening on :5000...")
 	http.ListenAndServe(":5000", nil)
 }
