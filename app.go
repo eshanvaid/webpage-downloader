@@ -94,7 +94,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 
 	w.Write([]byte("Webpage Successfully Downloaded"))
 
-	// Start a goroutine to periodically check the timestamps of the cache items and remove those older than 24 hours
+	// Start a goroutine to periodically remove timestamps from cache which are older than 24 hours
 	go func() {
 		ticker := time.NewTicker(time.Hour)
 		for range ticker.C {
