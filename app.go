@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -23,6 +24,12 @@ type CacheItem struct {
 var cache map[string]CacheItem
 
 const cacheExpiryInterval = 24 * time.Hour
+
+var (
+	numActiveWorkers = 10
+	semaphore        = make(chan struct{}, numActiveWorkers)
+	wg               sync.WaitGroup
+)
 
 func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body
@@ -50,48 +57,63 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Set the retry limit to the minimum of 10 or the retry limit in the request
-	retryLimit := 10
-	if req.RetryLimit > 0 && req.RetryLimit < retryLimit {
-		retryLimit = req.RetryLimit
-	}
+	// Increment the wait group counter
+	wg.Add(1)
 
-	// Fetch the webpage
-	var resp *http.Response
-	for i := 1; i <= retryLimit; i++ {
-		resp, err = http.Get(req.URL)
-		if err == nil {
-			break
+	// Acquire a semaphore
+	semaphore <- struct{}{}
+
+	// Start a worker to fetch the webpage
+	go func() {
+		// Set the retry limit to the minimum of 10 or the retry limit in the request
+		retryLimit := 10
+		if req.RetryLimit > 0 && req.RetryLimit < retryLimit {
+			retryLimit = req.RetryLimit
 		}
-		time.Sleep(time.Second)
-	}
-	if err != nil {
-		http.Error(w, "Error fetching the requested URL after "+strconv.Itoa(retryLimit)+" attempts", http.StatusInternalServerError)
-		return
-	}
-	defer resp.Body.Close()
 
-	// Read the content of the webpage
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		http.Error(w, "Error reading the requested webpage.", http.StatusInternalServerError)
-		return
-	}
+		// Fetch the webpage
+		var resp *http.Response
+		for i := 1; i <= retryLimit; i++ {
+			resp, err = http.Get(req.URL)
+			if err == nil {
+				break
+			}
+			time.Sleep(time.Second)
+		}
+		if err != nil {
+			http.Error(w, "Error fetching the requested URL after "+strconv.Itoa(retryLimit)+" attempts", http.StatusInternalServerError)
+			return
+		}
+		defer resp.Body.Close()
 
-	// Download the content of the webpage to a file
-	err = os.WriteFile("webpage.html", body, 0644)
-	if err != nil {
-		http.Error(w, "Error downloading the requested webpage.", http.StatusInternalServerError)
-		return
-	}
+		// Read the content of the webpage
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			http.Error(w, "Error reading the requested webpage.", http.StatusInternalServerError)
+			return
+		}
 
-	// Write the content of the webpage to the cache
-	cache[req.URL] = CacheItem{
-		Body:      body,
-		Timestamp: time.Now(),
-	}
-	fmt.Println("Wrote " + req.URL + " to cache memory")
+		// Download the content of the webpage to a file
+		err = os.WriteFile("webpage.html", body, 0644)
+		if err != nil {
+			http.Error(w, "Error downloading the requested webpage.", http.StatusInternalServerError)
+			return
+		}
 
+		// Write the content of the webpage to the cache
+		cache[req.URL] = CacheItem{
+			Body:      body,
+			Timestamp: time.Now(),
+		}
+		fmt.Println("Wrote " + req.URL + " to cache memory")
+
+		// Release the semaphore
+		<-semaphore
+
+		// Decrement the wait group counter
+		wg.Done()
+
+	}()
 	w.Write([]byte("Webpage Successfully Downloaded"))
 
 	// Start a goroutine to periodically remove timestamps from cache which are older than 24 hours
