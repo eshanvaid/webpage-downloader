@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,9 +17,16 @@ type Request struct {
 	RetryLimit int    `json:"retryLimit"`
 }
 
+type Response struct {
+	ID        string `json:"id"`
+	URL       string `json:"url"`
+	SourceURL string `json:"sourceUrl"`
+}
+
 type CacheItem struct {
 	Body      []byte
 	Timestamp time.Time
+	ID        string
 }
 
 var cache map[string]CacheItem
@@ -40,15 +48,37 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Generate a unique ID for the request
+	b := make([]byte, 16)
+	_, err = rand.Read(b)
+	id := fmt.Sprintf("%x", b)
+
+	// Create a file with the unique ID as the filename
+	filename := fmt.Sprintf("files/%s.html", id)
+	file, err := os.Create(filename)
+	if err != nil {
+		http.Error(w, "Error creating file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+
+	// Generate the response object
+	res := Response{
+		ID:        id,
+		URL:       req.URL,
+		SourceURL: filename,
+	}
+	jsonStr, _ := json.MarshalIndent(res, "", "  ")
+
 	// Check if the webpage is in the cache
 	if item, ok := cache[req.URL]; ok {
 		// Check if the webpage was requested within the last 24 hours
 		if time.Since(item.Timestamp) < cacheExpiryInterval {
 			// Write the content of the webpage to a file
-			err = os.WriteFile("webpage.html", item.Body, 0644)
+			err = os.WriteFile(filename, item.Body, 0644)
 			// Verify that the file has been written
 			if err == nil {
-				w.Write([]byte("Serving webpage from cache memory"))
+				w.Write([]byte("\nServing webpage from cache memory \n" + string(jsonStr)))
 				return
 			}
 		} else {
@@ -94,7 +124,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Download the content of the webpage to a file
-		err = os.WriteFile("webpage.html", body, 0644)
+		err = os.WriteFile(filename, body, 0644)
 		if err != nil {
 			http.Error(w, "Error downloading the requested webpage.", http.StatusInternalServerError)
 			return
@@ -104,6 +134,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		cache[req.URL] = CacheItem{
 			Body:      body,
 			Timestamp: time.Now(),
+			ID:        id,
 		}
 		fmt.Println("Wrote " + req.URL + " to cache memory")
 
@@ -114,7 +145,9 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		wg.Done()
 
 	}()
-	w.Write([]byte("Webpage Successfully Downloaded"))
+
+	// Write the response object to the response
+	w.Write([]byte("\nWebpage Successfully Downloaded \n" + string(jsonStr)))
 
 	// Start a goroutine to periodically remove timestamps from cache which are older than 24 hours
 	go func() {
