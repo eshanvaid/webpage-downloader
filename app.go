@@ -5,14 +5,17 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 )
 
 type Request struct {
-	URL string `json:"url"`
+	URL        string `json:"url"`
+	RetryLimit int    `json:"retryLimit"`
 }
 
 func downloadPageSource(w http.ResponseWriter, r *http.Request) {
-	// Parsing the request body
+	// Parse the request body
 	var req Request
 	err := json.NewDecoder(r.Body).Decode(&req)
 	if err != nil {
@@ -20,22 +23,35 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Fetching the webpage
-	resp, err := http.Get(req.URL)
+	// Set the retry limit to the minimum of 10 or the retry limit in the request
+	retryLimit := 10
+	if req.RetryLimit > 0 && req.RetryLimit < retryLimit {
+		retryLimit = req.RetryLimit
+	}
+
+	// Fetch the webpage
+	var resp *http.Response
+	for i := 1; i <= retryLimit; i++ {
+		resp, err = http.Get(req.URL)
+		if err == nil {
+			break
+		}
+		time.Sleep(time.Second)
+	}
 	if err != nil {
-		http.Error(w, "Error fetching the requested URL.", http.StatusInternalServerError)
+		http.Error(w, "Error fetching the requested URL after "+strconv.Itoa(retryLimit)+" attempts", http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
 
-	// Reading the content of the webpage
+	// Read the content of the webpage
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		http.Error(w, "Error reading the requested webpage.", http.StatusInternalServerError)
 		return
 	}
 
-	// Downloading the content of the webpage to a file
+	// Download the content of the webpage to a file
 	err = os.WriteFile("webpage.html", body, 0644)
 	if err != nil {
 		http.Error(w, "Error downloading the requested webpage.", http.StatusInternalServerError)
