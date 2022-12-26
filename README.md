@@ -4,9 +4,11 @@ This is a server endpoint that takes the URL of a webpage as input, fetches the 
 
 ## Features
 
-- The server accepts a retry limit as a parameter. It retries a maximum of 10 times or the retry limit, whichever is lower, before either successfully downloading the webpage or marking the page as a failure.
-- If the webpage has already been requested in the last 24 hours, it is served from the local cache.
-- The server has a pool of workers that do the work of downloading the requested webpage. This allows the server to handle a large number of concurrent requests while still limiting the number of actual requests to download the webpages.
+- **Retry limit**: The server accepts a retry limit as a parameter. It retries a maximum of 10 times or the retry limit, whichever is lower, before either successfully downloading the webpage or marking the page as a failure. This helps to ensure that the server can handle intermittent connectivity issues or temporary server errors.
+
+- **Cache**: If the webpage has already been requested in the last 24 hours, it is served from the local cache. This helps to reduce the load on the server and improve the response time for repeated requests. The server also has a go routine that runs in the background and clears the cache of any items that are older than 24 hours. This helps to ensure that the cache does not grow too large and consumes unnecessary memory.
+
+- **Worker pool**: The server has a pool of workers that do the work of downloading the requested webpage. This allows the server to handle a large number of concurrent requests while still limiting the number of actual requests to download the webpages. This helps to prevent the server from being overloaded and ensures that it remains responsive.
 
 ## Usage
 
@@ -50,8 +52,6 @@ The downloaded webpage will be saved to the local file system as a file with the
 The server can be configured using the following environment variables:
 
 - `PORT`: the port number on which the server will listen for requests (default: 5000)
-- `RETRY_LIMIT`: the maximum number of retries for each request (default: 10)
-- `WORKER_POOL_SIZE`: the size of the worker pool (default: 10)
 
 ## Dependencies
 
