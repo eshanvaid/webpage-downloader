@@ -13,7 +13,7 @@ This is a server endpoint that takes the URL of a webpage as input, fetches the 
 To start the server, run the following command:
 
 ```go
-go run main.go
+go run app.go
 ```
 
 
