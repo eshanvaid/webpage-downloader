@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -48,24 +47,16 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate a unique ID for the request
+	// Generate a unique ID for the request and the filename
 	b := make([]byte, 16)
 	_, err = rand.Read(b)
 	id := fmt.Sprintf("%x", b)
+	filename := fmt.Sprintf("files/%s.html", id)
 
 	// Check for the directory's existence and create it if it doesn't exist
 	if _, err := os.Stat("files"); os.IsNotExist(err) {
 		os.Mkdir("files", os.ModePerm)
 	}
-
-	// Create a file with the unique ID as the filename
-	filename := fmt.Sprintf("files/%s.html", id)
-	file, err := os.Create(filename)
-	if err != nil {
-		http.Error(w, "Error creating file", http.StatusInternalServerError)
-		return
-	}
-	defer file.Close()
 
 	// Generate the response object
 	res := Response{
@@ -79,6 +70,14 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	if item, ok := cache[req.URL]; ok {
 		// Check if the webpage was requested within the last 24 hours
 		if time.Since(item.Timestamp) < cacheExpiryInterval {
+			// Create a file with the unique ID as the filename
+			file, err := os.Create(filename)
+			if err != nil {
+				http.Error(w, "Error creating file", http.StatusInternalServerError)
+				return
+			}
+			defer file.Close()
+
 			// Write the content of the webpage to a file
 			err = os.WriteFile(filename, item.Body, 0644)
 			// Verify that the file has been written
@@ -98,6 +97,9 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	// Acquire a semaphore
 	semaphore <- struct{}{}
 
+	// Create a channel to communicate the result of the worker goroutine back to the main goroutine
+	resultChan := make(chan error)
+
 	// Start a worker to fetch the webpage
 	go func() {
 		// Set the retry limit to the minimum of 10 or the retry limit in the request
@@ -116,7 +118,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 			time.Sleep(time.Second)
 		}
 		if err != nil {
-			http.Error(w, "Error fetching the requested URL after "+strconv.Itoa(retryLimit)+" attempts", http.StatusInternalServerError)
+			resultChan <- err
 			return
 		}
 		defer resp.Body.Close()
@@ -124,14 +126,22 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		// Read the content of the webpage
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			http.Error(w, "Error reading the requested webpage.", http.StatusInternalServerError)
+			resultChan <- err
 			return
 		}
 
-		// Download the content of the webpage to a file
+		// Create a file with the unique ID as the filename
+		file, err := os.Create(filename)
+		if err != nil {
+			resultChan <- err
+			return
+		}
+		defer file.Close()
+
+		// Download the content of the webpage to the file
 		err = os.WriteFile(filename, body, 0644)
 		if err != nil {
-			http.Error(w, "Error downloading the requested webpage.", http.StatusInternalServerError)
+			resultChan <- err
 			return
 		}
 
@@ -143,13 +153,23 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Println("Wrote " + req.URL + " to cache memory")
 
-		// Release the semaphore
-		<-semaphore
-
-		// Decrement the wait group counter
-		wg.Done()
+		// Send the result to the result channel
+		resultChan <- nil
 
 	}()
+
+	// Wait for the worker to finish
+	err = <-resultChan
+	if err != nil {
+		http.Error(w, "Error fetching the requested URL", http.StatusInternalServerError)
+		return
+	}
+
+	// Release the semaphore
+	<-semaphore
+
+	// Decrement the wait group counter
+	wg.Done()
 
 	// Write the response object to the response
 	w.Write([]byte("\nWebpage Successfully Downloaded \n" + string(jsonStr)))
