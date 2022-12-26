@@ -168,7 +168,12 @@ func main() {
 	// Initialize the cache map
 	cache = make(map[string]CacheItem)
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "5000"
+	}
+
 	http.HandleFunc("/pagesource", downloadPageSource)
-	fmt.Println("Listening on :5000...")
-	http.ListenAndServe(":5000", nil)
+	fmt.Println("Listening on port: " + port + "...")
+	http.ListenAndServe(":"+port, nil)
 }
