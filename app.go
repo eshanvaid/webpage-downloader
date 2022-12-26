@@ -53,6 +53,11 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	_, err = rand.Read(b)
 	id := fmt.Sprintf("%x", b)
 
+	// Check for the directory's existence and create it if it doesn't exist
+	if _, err := os.Stat("files"); os.IsNotExist(err) {
+		os.Mkdir("files", os.ModePerm)
+	}
+
 	// Create a file with the unique ID as the filename
 	filename := fmt.Sprintf("files/%s.html", id)
 	file, err := os.Create(filename)
