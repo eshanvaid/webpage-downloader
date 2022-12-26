@@ -1,4 +1,4 @@
-# webpage-downloader
+# Webpage Downloader
 
 This is a server endpoint that takes the URL of a webpage as input, fetches the webpage, and downloads it as a file on the local file system.
 
