@@ -24,7 +24,7 @@ To send a request to the server, use a tool such as `curl` to send a POST reques
 Here's an example of how you can send a request using `curl`:
 
 ```bash
-curl --location --request POST 'http://localhost:5000/pagesource' \
+curl --location --request POST 'http://localhost:7771/pagesource' \
 --header 'Content-Type: application/json' \
 --data-raw '{
    "url": "https://google.com",
@@ -51,7 +51,7 @@ The downloaded webpage will be saved to the local file system as a file with the
 
 The server can be configured using the following environment variables:
 
-- `PORT`: the port number on which the server will listen for requests (default: 5000)
+- `PORT`: the port number on which the server will listen for requests (default: 7771)
 
 ## Dependencies
 
