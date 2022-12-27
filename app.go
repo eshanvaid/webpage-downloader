@@ -201,6 +201,13 @@ func main() {
 	}
 
 	http.HandleFunc("/pagesource", downloadPageSource)
-	fmt.Println("Listening on port: " + port + "...")
-	http.ListenAndServe(":"+port, nil)
+
+	//Listen on the specified port
+	err := http.ListenAndServe(":"+port, nil)
+	if err == nil {
+		fmt.Println("Listening on port: " + port + "...")
+	} else {
+		fmt.Println(err)
+		return
+	}
 }
