@@ -196,8 +196,8 @@ func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
 		// The PORT environment variable is not set or is not a valid integer.
-		// Use the default value of 5000.
-		port = "5000"
+		// Use the default value of 7771.
+		port = "7771"
 	}
 
 	http.HandleFunc("/pagesource", downloadPageSource)
