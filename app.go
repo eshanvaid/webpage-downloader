@@ -68,7 +68,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	jsonStr, _ := json.MarshalIndent(res, "", "  ")
 
 	// Check if the webpage is in the cache
-	if item, ok := cache[req.URL]; ok {
+	if item, ok := cache[id]; ok {
 		// Check if the webpage was requested within the last 24 hours
 		if time.Since(item.Timestamp) < cacheExpiryInterval {
 			// Create a file with the unique ID as the filename
@@ -147,7 +147,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Write the content of the webpage to the cache
-		cache[req.URL] = CacheItem{
+		cache[id] = CacheItem{
 			Body:      body,
 			Timestamp: time.Now(),
 			ID:        id,
