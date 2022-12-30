@@ -1,7 +1,8 @@
 package main
 
 import (
-	"crypto/rand"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,10 +48,10 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate a unique ID for the request and the filename
-	b := make([]byte, 16)
-	_, err = rand.Read(b)
-	id := fmt.Sprintf("%x", b)
+	// Generate a unique ID and filename for the webpage based on the URL
+	hasher := sha1.New()
+	hasher.Write([]byte(req.URL))
+	id := hex.EncodeToString(hasher.Sum(nil))
 	filename := fmt.Sprintf("files/%s.html", id)
 
 	// Check for the directory's existence and create it if it doesn't exist
