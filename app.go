@@ -80,7 +80,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 
 		} else {
 			fmt.Println("Deleted " + req.URL + " from cache memory")
-			delete(cache, req.URL)
+			delete(cache, id)
 		}
 	}
 
