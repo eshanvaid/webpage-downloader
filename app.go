@@ -73,11 +73,12 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	if item, ok := cache[id]; ok {
 		// Check if the webpage was requested within the last 24 hours
 		if time.Since(item.Timestamp) < cacheExpiryInterval {
-
-			// Serve the file to the client
-			w.Write([]byte("\nServing webpage from cache memory \n" + string(jsonStr)))
-			return
-
+			//Check if file exists on machine
+			if _, err := os.Stat(filename); err == nil {
+				// Serve the file to the client
+				w.Write([]byte("\nServing webpage from cache memory \n" + string(jsonStr)))
+				return
+			}
 		} else {
 			fmt.Println("Deleted " + req.URL + " from cache memory")
 			delete(cache, id)
