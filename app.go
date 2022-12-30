@@ -140,9 +140,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 
 		// Write the content of the webpage to the cache
 		cache[id] = CacheItem{
-			Body:      body,
 			Timestamp: time.Now(),
-			ID:        id,
 		}
 		fmt.Println("Wrote " + req.URL + " to cache memory")
 
