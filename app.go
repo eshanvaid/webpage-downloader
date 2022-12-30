@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"os"
+
+	// "path/filepath"
 	"sync"
 	"time"
 )
@@ -71,21 +73,11 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	if item, ok := cache[id]; ok {
 		// Check if the webpage was requested within the last 24 hours
 		if time.Since(item.Timestamp) < cacheExpiryInterval {
-			// Create a file with the unique ID as the filename
-			file, err := os.Create(filename)
-			if err != nil {
-				http.Error(w, "Error creating file", http.StatusInternalServerError)
-				return
-			}
-			defer file.Close()
 
-			// Write the content of the webpage to a file
-			err = os.WriteFile(filename, item.Body, 0644)
-			// Verify that the file has been written
-			if err == nil {
-				w.Write([]byte("\nServing webpage from cache memory \n" + string(jsonStr)))
-				return
-			}
+			// Serve the file to the client
+			w.Write([]byte("\nServing webpage from cache memory \n" + string(jsonStr)))
+			return
+
 		} else {
 			fmt.Println("Deleted " + req.URL + " from cache memory")
 			delete(cache, req.URL)
