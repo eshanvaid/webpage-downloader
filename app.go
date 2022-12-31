@@ -26,9 +26,8 @@ type Response struct {
 }
 
 type CacheItem struct {
-	Body      []byte
 	Timestamp time.Time
-	ID        string
+	URL       string
 }
 
 var cache map[string]CacheItem
@@ -80,7 +79,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		} else {
-			fmt.Println("Deleted " + req.URL + " from cache memory")
+			fmt.Println("Deleted " + item.URL + " from cache memory")
 			delete(cache, id)
 		}
 	}
@@ -142,6 +141,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 		// Write the content of the webpage to the cache
 		cache[id] = CacheItem{
 			Timestamp: time.Now(),
+			URL:       req.URL,
 		}
 		fmt.Println("Wrote " + req.URL + " to cache memory")
 
@@ -172,7 +172,7 @@ func deleteExpiredCacheEntries() {
 	for id, item := range cache {
 		if time.Since(item.Timestamp) > cacheExpiryInterval {
 			delete(cache, id)
-			fmt.Println("Deleted " + id + " from cache memory")
+			fmt.Println("Deleted " + item.URL + " from cache memory")
 		}
 	}
 }
