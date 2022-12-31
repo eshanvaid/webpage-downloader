@@ -32,7 +32,10 @@ type CacheItem struct {
 
 var cache map[string]CacheItem
 
-const cacheExpiryInterval = 24 * time.Hour
+// Queue of cache entries
+var queue []string
+
+const cacheExpiryInterval = 5 * time.Second
 
 var (
 	numActiveWorkers = 10
@@ -78,9 +81,6 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte("\nServing webpage from cache memory \n" + string(jsonStr)))
 				return
 			}
-		} else {
-			fmt.Println("Deleted " + item.URL + " from cache memory")
-			delete(cache, id)
 		}
 	}
 
@@ -143,6 +143,7 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 			Timestamp: time.Now(),
 			URL:       req.URL,
 		}
+		queue = append(queue, id)
 		fmt.Println("Wrote " + req.URL + " to cache memory")
 
 		// Send the result to the result channel
@@ -169,11 +170,17 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteExpiredCacheEntries() {
-	for id, item := range cache {
-		if time.Since(item.Timestamp) > cacheExpiryInterval {
-			delete(cache, id)
-			fmt.Println("Deleted " + item.URL + " from cache memory")
+	for len(queue) > 0 {
+		id := queue[0]
+		item, ok := cache[id]
+		if !ok || time.Since(item.Timestamp) <= cacheExpiryInterval {
+			// Cache entry is still valid or does not exist, stop deleting
+			break
 		}
+		// Cache entry has expired, delete it and remove it from the queue
+		delete(cache, id)
+		fmt.Println("Deleted " + item.URL + " from cache memory")
+		queue = queue[1:]
 	}
 }
 
