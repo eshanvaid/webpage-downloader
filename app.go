@@ -8,9 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-
-	// "path/filepath"
-	"sync"
 	"time"
 )
 
@@ -35,13 +32,11 @@ var cache map[string]CacheItem
 // Queue of cache entries
 var queue []string
 
-const cacheExpiryInterval = 5 * time.Second
+const cacheExpiryInterval = 24 * time.Hour
 
-var (
-	numActiveWorkers = 10
-	semaphore        = make(chan struct{}, numActiveWorkers)
-	wg               sync.WaitGroup
-)
+// Semaphore to limit the number of concurrent workers
+var numActiveWorkers = 10
+var semaphore = make(chan struct{}, numActiveWorkers)
 
 func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body
@@ -83,9 +78,6 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-
-	// Increment the wait group counter
-	wg.Add(1)
 
 	// Acquire a semaphore
 	semaphore <- struct{}{}
@@ -160,9 +152,6 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 
 	// Release the semaphore
 	<-semaphore
-
-	// Decrement the wait group counter
-	wg.Done()
 
 	// Write the response object to the response
 	w.Write([]byte("\nWebpage Successfully Downloaded \n" + string(jsonStr)))
