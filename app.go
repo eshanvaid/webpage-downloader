@@ -166,19 +166,15 @@ func downloadPageSource(w http.ResponseWriter, r *http.Request) {
 	// Write the response object to the response
 	w.Write([]byte("\nWebpage Successfully Downloaded \n" + string(jsonStr)))
 
-	// Start a goroutine to periodically remove timestamps from cache which are older than 24 hours
-	go func() {
-		ticker := time.NewTicker(time.Hour)
-		for range ticker.C {
-			for url, item := range cache {
-				if time.Since(item.Timestamp) > cacheExpiryInterval {
-					fmt.Println("Deleted " + url + " from cache memory")
-					delete(cache, url)
-				}
-			}
-		}
-	}()
+}
 
+func deleteExpiredCacheEntries() {
+	for id, item := range cache {
+		if time.Since(item.Timestamp) > cacheExpiryInterval {
+			delete(cache, id)
+			fmt.Println("Deleted " + id + " from cache memory")
+		}
+	}
 }
 
 func main() {
@@ -191,6 +187,14 @@ func main() {
 		// Use the default value of 7771.
 		port = "7771"
 	}
+
+	// Start a goroutine to delete older cache entries
+	go func() {
+		for {
+			time.Sleep(time.Second)
+			deleteExpiredCacheEntries()
+		}
+	}()
 
 	http.HandleFunc("/pagesource", downloadPageSource)
 
